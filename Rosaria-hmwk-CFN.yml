@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create a ec2 instance
+  # InstanceTypeParameter:
+  #   Type: String
+  #   Default: t2.micro
+  #   AllowedValues:
+  #     - t2.micro
+  #     - m1.small
+  #     - m1.large
+  #   Description: Enter t2.micro, m1.small, or m1.large. Default is t2.micro.
+Parameters:
+  EnvironmentType: 
+    Description: The environment type
+    Type: String
+    Default: test
+    AllowedValues: 
+      - prod
+      - test
+    ConstraintDescription: must be a prod or test
+
+Mappings: 
+  RegionAndInstanceTypeToAMIID: 
+    us-east-1: 
+      test: "ami-8ff710e2"
+      prod: "ami-f5f41398"
+    us-west-2: 
+      test: "ami-094125af156557ca2"
+      prod: "ami-094125af156557ca2"
+
+
+Resources:
+  MyEC2Instance: 
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: "t3.micro"
+      ImageId: !FindInMap [RegionAndInstanceTypeToAMIID, !Ref "AWS::Region", !Ref EnvironmentType ]
+      SubnetId: !ImportValue SampleNetworkCrossStack-SubnetID
+      SecurityGroupIds:
+        - !ImportValue SampleNetworkCrossStack-SecurityGroupID
+      Tags: 
+        - Key: "Name"
+          Value: "MyEC2-CFN"
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          yum update -y
+          yum install httpd -y
+          systmctl start httpd
+          systmctl enable httpd
+          echo "Hello world Rosaria Website" > /var/www/html/index.html
+
+  MyEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref MyEC2Instance
+
+
+Outputs:
+  PrivateIPv4:
+    Description: IPv4 address
+    Value: !GetAtt MyEC2Instance.PrivateIp
+  DNSName:
+    Description: Return DNS name
+    Value: !GetAtt MyEC2Instance.PublicDnsName
